@@ -26,11 +26,10 @@ jobs:
       - name: Run Checkstyle Lint
         run: ./gradlew checkstyleMain checkstyleTest || echo "Checkstyle task not configured"
 
-      - name: Run Synopsys (Black Duck / Detect) Security Scan
-        uses: synopsys-sig/synopsys-action@v1.9.0
-        with:
-          blackduck_url: ${{ secrets.BLACKDUCK_URL }}
-          blackduck_api_token: ${{ secrets.BLACKDUCK_API_TOKEN }}
+      - name: Run Snyk Security Scan
+        uses: snyk/actions/gradle@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         continue-on-error: true
 
   build-and-test:
