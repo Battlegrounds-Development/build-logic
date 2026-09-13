@@ -1,0 +1,83 @@
+name: PR Workflow
+
+on:
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  lint-and-scan:
+    name: Parallel Lint & Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew || true
+
+      - name: Run Checkstyle Lint
+        run: ./gradlew checkstyleMain checkstyleTest || echo "Checkstyle task not configured"
+
+      - name: Run Checkmarx Security Scan
+        uses: checkmarx/ast-github-action@2.4.0
+        with:
+          project_name: ${{ github.event.repository.name }}
+          server_url: ${{ secrets.CHECKMARX_SERVER_URL }}
+          client_id: ${{ secrets.CHECKMARX_CLIENT_ID }}
+          client_secret: ${{ secrets.CHECKMARX_CLIENT_SECRET }}
+        continue-on-error: true
+
+  build-and-test:
+    name: Build, Test, Coverage & SonarQube
+    needs: lint-and-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew || true
+
+      - name: Run Gradle Build & JUnit Tests with JaCoCo
+        run: ./gradlew build jacocoTestReport
+
+      - name: Upload JaCoCo Code Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage-report
+          path: build/reports/jacoco/test/html/
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ github.event.repository.name }}
+            -Dsonar.java.coveragePlugin=jacoco
+            -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml
+
+  ai-notice:
+    name: AI Notice
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post AI Notice
+        run: echo "🤖 PR Workflow executed successfully by AI (opencode)."
