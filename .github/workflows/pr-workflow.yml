@@ -3,6 +3,7 @@ name: PR Workflow
 on:
   pull_request:
     branches: [ "main", "master" ]
+  workflow_call:
 
 jobs:
   lint-and-scan:
@@ -25,13 +26,11 @@ jobs:
       - name: Run Checkstyle Lint
         run: ./gradlew checkstyleMain checkstyleTest || echo "Checkstyle task not configured"
 
-      - name: Run Checkmarx Security Scan
-        uses: checkmarx/ast-github-action@2.4.0
+      - name: Run Synopsys (Black Duck / Detect) Security Scan
+        uses: synopsys-sig/synopsys-action@v1.9.0
         with:
-          project_name: ${{ github.event.repository.name }}
-          server_url: ${{ secrets.CHECKMARX_SERVER_URL }}
-          client_id: ${{ secrets.CHECKMARX_CLIENT_ID }}
-          client_secret: ${{ secrets.CHECKMARX_CLIENT_SECRET }}
+          blackduck_url: ${{ secrets.BLACKDUCK_URL }}
+          blackduck_api_token: ${{ secrets.BLACKDUCK_API_TOKEN }}
         continue-on-error: true
 
   build-and-test:
