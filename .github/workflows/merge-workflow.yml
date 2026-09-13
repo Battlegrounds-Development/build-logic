@@ -6,7 +6,7 @@ on:
 
 jobs:
   snapshot-build-and-publish:
-    name: Build, Mojang Re-obfuscate & Publish Snapshot
+    name: Build, Mojang Re-obfuscate, Publish & Changelog
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -36,17 +36,37 @@ jobs:
           echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
           echo "Generated version tag: ${VERSION_TAG}"
 
-      - name: Run Paperweight Mojang Re-obfuscation & Gradle Build
+      - name: Run Paperweight Mojang Re-obfuscation & Gradle Build with JaCoCo
         run: |
-          # Paperweight re-obfuscation task or standard gradle build
-          ./gradlew build reobfJar || ./gradlew build
+          ./gradlew build jacocoTestReport reobfJar || ./gradlew build jacocoTestReport
 
-      - name: Extract PR / Commit Metadata for Release Notes
+      - name: Extract PR / Commit Metadata for Release Notes & Changelog
         id: metadata
         run: |
           COMMIT_MSG=$(git log -1 --pretty=%B)
           AUTHOR=$(git log -1 --pretty=%an)
-          echo "body=### Development Snapshot Build\n- **Commit Message:** ${COMMIT_MSG}\n- **Author:** ${AUTHOR}\n- **Timestamp:** $(date -u)" >> $GITHUB_OUTPUT
+          DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          
+          # Prepare Release Notes body
+          BODY="### Development Snapshot Build\n- **Commit Message:** ${COMMIT_MSG}\n- **Author:** ${AUTHOR}\n- **Timestamp:** ${DATE}"
+          echo "body=${BODY}" >> $GITHUB_OUTPUT
+
+          # Update local CHANGELOG.md file automatically
+          CHANGELOG_ENTRY="## [${{ steps.timestamp.outputs.version_tag }}] - ${DATE}\n- **Commit:** ${COMMIT_MSG} (${AUTHOR})\n"
+          if [ -f "CHANGELOG.md" ]; then
+            # Prepend entry after header if CHANGELOG exists, or prepend top
+            echo -e "${CHANGELOG_ENTRY}\n$(cat CHANGELOG.md)" > CHANGELOG.md
+          else
+            echo -e "# Changelog\n\n${CHANGELOG_ENTRY}" > CHANGELOG.md
+          fi
+
+      - name: Commit and Push Updated Changelog
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: auto-update changelog for snapshot ${{ steps.timestamp.outputs.version_tag }} [skip ci]" || echo "No changes to commit"
+          git push || echo "Push skipped or failed"
 
       - name: Publish Pre-release / Developmental Snapshot Release
         uses: softprops/action-gh-release@v1
@@ -60,19 +80,45 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish to Artifactory / Package Registry
+      - name: Publish JAR to Artifactory / Package Registry
         run: |
-          ./gradlew publish || echo "Publish task not configured or skipped"
+          ./gradlew publish || ./gradlew publishAllPublicationsToMavenRepository || echo "Publish task not configured or skipped"
         env:
           ORG_GRADLE_PROJECT_artifactoryUrl: ${{ secrets.ARTIFACTORY_URL }}
           ORG_GRADLE_PROJECT_artifactoryUser: ${{ secrets.ARTIFACTORY_USER }}
           ORG_GRADLE_PROJECT_artifactoryPassword: ${{ secrets.ARTIFACTORY_PASSWORD }}
 
-      - name: Upload Final Test Baseline Trends
+      - name: Track Test Coverage Baseline & Changes
+        run: |
+          echo "Analyzing JaCoCo XML report for test coverage baseline..."
+          if [ -f "build/reports/jacoco/test/jacocoTestReport.xml" ]; then
+            echo "JaCoCo report found. Parsing coverage metrics..."
+            python3 -c "
+import xml.etree.ElementTree as ET
+try:
+    tree = ET.parse('build/reports/jacoco/test/jacocoTestReport.xml')
+    root = tree.getroot()
+    for counter in root.findall('counter'):
+        ftype = counter.get('type')
+        missed = float(counter.get('missed'))
+        covered = float(counter.get('covered'))
+        total = missed + covered
+        pct = (covered / total * 100) if total > 0 else 0
+        print(f'Coverage Metric [{ftype}]: {pct:.2f}% covered (Missed: {missed}, Covered: {covered})')
+except Exception as e:
+    print('Could not parse coverage XML:', e)
+"
+          else:
+            echo "No JaCoCo XML report found."
+          fi
+
+      - name: Upload Final Test Baseline Trends & Coverage XML
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-baseline-${{ steps.timestamp.outputs.version_tag }}
-          path: build/test-results/**/*.xml
+          name: test-results-and-coverage-${{ steps.timestamp.outputs.version_tag }}
+          path: |
+            build/test-results/**/*.xml
+            build/reports/jacoco/test/jacocoTestReport.xml
 
       - name: AI Notice
         run: echo "🤖 Merge Workflow executed successfully by AI (opencode)."
