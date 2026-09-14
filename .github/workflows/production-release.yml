@@ -63,16 +63,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 4. Publish to Production Artifact Mirrors (Hangar, Modrinth, Artifactory)
+      - name: 4. Publish to Production Artifact Mirrors (Hangar, Modrinth, GitHub Packages)
         run: |
-          echo "Publishing production artifacts to mirrors..."
-          ./gradlew publishProduction || echo "Publish production task not configured or skipped"
+          echo "Publishing production artifacts to mirrors and GitHub Packages..."
+          ./gradlew publish || echo "Publish task not configured or skipped"
         env:
           HANGAR_API_KEY: ${{ secrets.HANGAR_API_KEY }}
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
-          ORG_GRADLE_PROJECT_artifactoryProdUrl: ${{ secrets.ARTIFACTORY_PROD_URL }}
-          ORG_GRADLE_PROJECT_artifactoryUser: ${{ secrets.ARTIFACTORY_USER }}
-          ORG_GRADLE_PROJECT_artifactoryPassword: ${{ secrets.ARTIFACTORY_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 5. Update Central libs.versions.toml Baseline
         run: |

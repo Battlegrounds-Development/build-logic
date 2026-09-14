@@ -80,13 +80,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish JAR to Artifactory / Package Registry
+      - name: Publish JAR to GitHub Packages
         run: |
           ./gradlew publish || ./gradlew publishAllPublicationsToMavenRepository || echo "Publish task not configured or skipped"
         env:
-          ORG_GRADLE_PROJECT_artifactoryUrl: ${{ secrets.ARTIFACTORY_URL }}
-          ORG_GRADLE_PROJECT_artifactoryUser: ${{ secrets.ARTIFACTORY_USER }}
-          ORG_GRADLE_PROJECT_artifactoryPassword: ${{ secrets.ARTIFACTORY_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Track Test Coverage Baseline & Changes
         run: |
