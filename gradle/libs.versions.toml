@@ -1,7 +1,7 @@
 [versions]
 java = "21"
 paper = "1.21.8-R0.1-SNAPSHOT"
-spigot = "1.20.4-R0.1-SNAPSHOT"
+spigot = "26.2-R0.1-SNAPSHOT"
 oraxen = "1.205.0"
 junit = "5.10.2"
 jacoco = "0.8.11"
