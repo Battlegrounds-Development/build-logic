@@ -1,6 +1,6 @@
 [versions]
 java = "21"
-paper = "1.21.8-R0.1-SNAPSHOT"
+paper = "26.2.build.123-stable"
 spigot = "1.20.4-R0.1-SNAPSHOT"
 oraxen = "1.205.0"
 junit = "5.10.2"
