@@ -30,7 +30,6 @@ jobs:
         uses: snyk/actions/gradle@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        continue-on-error: true
 
   build-and-test:
     name: Build, Test, Coverage & SonarQube
